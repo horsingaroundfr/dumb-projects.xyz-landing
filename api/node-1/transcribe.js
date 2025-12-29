@@ -7,7 +7,7 @@ const WIT_TOKEN = 'RHPTZF7H4VEAQWREEYYNJG32DXYFQJRY'; // <-- Put your token here
 
 export const config = {
     api: {
-        bodyParser: false // Disable to handle raw binary
+        bodyParser: false
     }
 };
 
@@ -54,23 +54,33 @@ export default async function handler(req, res) {
             body: audioBuffer
         });
 
+        const responseText = await witRes.text();
+
         if (!witRes.ok) {
-            return res.status(witRes.status).json({ error: await witRes.text() });
+            return res.status(witRes.status).json({ error: responseText });
         }
 
-        const chunks = (await witRes.text())
+        // Parse all chunks from wit.ai response
+        const chunks = responseText
             .split('\n')
             .filter(l => l.trim())
             .map(l => { try { return JSON.parse(l); } catch { return null; } })
             .filter(Boolean);
 
+        // Find the final result with text
         const final = chunks.reverse().find(c => c.text !== undefined);
 
         return res.status(200).json({
             success: true,
             text: final?.text || '',
             intents: final?.intents || [],
-            entities: final?.entities || {}
+            entities: final?.entities || {},
+            debug: {
+                audioSize: audioBuffer.length,
+                contentType: contentType,
+                witRawResponse: responseText,
+                parsedChunks: chunks.length
+            }
         });
 
     } catch (err) {
