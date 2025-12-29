@@ -1,11 +1,9 @@
 /**
- * Translation API - Free with auto-detect
+ * Translation API - Google Translate (unofficial)
  * POST /api/translate
  * 
- * Uses LibreTranslate (free public instance)
+ * Uses Google Translate's free web endpoint
  */
-
-const LIBRETRANSLATE_URL = 'https://libretranslate.com';
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -21,45 +19,39 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Missing "text" parameter' });
         }
 
-        // Detect language first if auto
-        let sourceLanguage = from;
-        if (from === 'auto') {
-            const detectRes = await fetch(`${LIBRETRANSLATE_URL}/detect`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ q: text })
-            });
-            const detectData = await detectRes.json();
+        // Google Translate unofficial API endpoint
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`;
 
-            if (detectData && detectData[0]) {
-                sourceLanguage = detectData[0].language;
-            } else {
-                sourceLanguage = 'en'; // fallback
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
+
+        if (!response.ok) {
+            return res.status(response.status).json({ error: 'Translation failed' });
+        }
+
+        const data = await response.json();
+
+        // Response format: [[["translated","original",null,null,10]],null,"en",...]
+        // data[0] contains translation segments, data[2] is detected source language
+        let translated = '';
+        if (data[0]) {
+            for (const segment of data[0]) {
+                if (segment[0]) {
+                    translated += segment[0];
+                }
             }
         }
 
-        // Translate
-        const translateRes = await fetch(`${LIBRETRANSLATE_URL}/translate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                q: text,
-                source: sourceLanguage,
-                target: to
-            })
-        });
-
-        const data = await translateRes.json();
-
-        if (data.error) {
-            return res.status(400).json({ error: data.error });
-        }
+        const detectedFrom = data[2] || from;
 
         return res.status(200).json({
             success: true,
             original: text,
-            translated: data.translatedText,
-            from: sourceLanguage,
+            translated: translated,
+            from: detectedFrom,
             to: to
         });
 
