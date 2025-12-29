@@ -19,6 +19,30 @@ async function getRawBody(req) {
     return Buffer.concat(chunks);
 }
 
+function parseWitResponse(text) {
+    // Wit.ai returns multiple pretty-printed JSON objects separated by }\r\n{
+    // We need to split them properly
+    const results = [];
+    let depth = 0;
+    let start = -1;
+
+    for (let i = 0; i < text.length; i++) {
+        if (text[i] === '{') {
+            if (depth === 0) start = i;
+            depth++;
+        } else if (text[i] === '}') {
+            depth--;
+            if (depth === 0 && start !== -1) {
+                try {
+                    results.push(JSON.parse(text.slice(start, i + 1)));
+                } catch { }
+                start = -1;
+            }
+        }
+    }
+    return results;
+}
+
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -60,18 +84,12 @@ export default async function handler(req, res) {
             return res.status(witRes.status).json({ error: responseText });
         }
 
-        // Split on \r\n (wit.ai uses CRLF) and parse each JSON chunk
-        const chunks = responseText
-            .split(/\r?\n/)
-            .map(l => l.trim())
-            .filter(l => l.startsWith('{'))
-            .map(l => { try { return JSON.parse(l); } catch { return null; } })
-            .filter(Boolean);
+        const chunks = parseWitResponse(responseText);
 
         // Get FINAL_TRANSCRIPTION or FINAL_UNDERSTANDING, fallback to last chunk with text
         const final = chunks.find(c => c.type === 'FINAL_TRANSCRIPTION')
             || chunks.find(c => c.type === 'FINAL_UNDERSTANDING')
-            || chunks.reverse().find(c => c.text);
+            || [...chunks].reverse().find(c => c.text);
 
         return res.status(200).json({
             success: true,
