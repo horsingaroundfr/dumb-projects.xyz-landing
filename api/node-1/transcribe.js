@@ -60,27 +60,25 @@ export default async function handler(req, res) {
             return res.status(witRes.status).json({ error: responseText });
         }
 
-        // Parse all chunks from wit.ai response
+        // Split on \r\n (wit.ai uses CRLF) and parse each JSON chunk
         const chunks = responseText
-            .split('\n')
-            .filter(l => l.trim())
+            .split(/\r?\n/)
+            .map(l => l.trim())
+            .filter(l => l.startsWith('{'))
             .map(l => { try { return JSON.parse(l); } catch { return null; } })
             .filter(Boolean);
 
-        // Find the final result with text
-        const final = chunks.reverse().find(c => c.text !== undefined);
+        // Get FINAL_TRANSCRIPTION or FINAL_UNDERSTANDING, fallback to last chunk with text
+        const final = chunks.find(c => c.type === 'FINAL_TRANSCRIPTION')
+            || chunks.find(c => c.type === 'FINAL_UNDERSTANDING')
+            || chunks.reverse().find(c => c.text);
 
         return res.status(200).json({
             success: true,
             text: final?.text || '',
+            confidence: final?.speech?.confidence,
             intents: final?.intents || [],
-            entities: final?.entities || {},
-            debug: {
-                audioSize: audioBuffer.length,
-                contentType: contentType,
-                witRawResponse: responseText,
-                parsedChunks: chunks.length
-            }
+            entities: final?.entities || {}
         });
 
     } catch (err) {
