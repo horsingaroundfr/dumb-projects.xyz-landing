@@ -6,8 +6,18 @@
 const WIT_TOKEN = 'RHPTZF7H4VEAQWREEYYNJG32DXYFQJRY'; // <-- Put your token here
 
 export const config = {
-    api: { bodyParser: { sizeLimit: '10mb' } }
+    api: {
+        bodyParser: false // Disable to handle raw binary
+    }
 };
+
+async function getRawBody(req) {
+    const chunks = [];
+    for await (const chunk of req) {
+        chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+}
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,16 +28,21 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
     try {
+        const rawBody = await getRawBody(req);
         let audioBuffer, contentType = 'audio/wav';
 
         if (req.headers['content-type']?.includes('application/json')) {
-            const { audio, format } = req.body;
-            if (!audio) return res.status(400).json({ error: 'Missing audio (base64)' });
-            audioBuffer = Buffer.from(audio, 'base64');
-            contentType = format || 'audio/wav';
+            const json = JSON.parse(rawBody.toString());
+            if (!json.audio) return res.status(400).json({ error: 'Missing audio (base64)' });
+            audioBuffer = Buffer.from(json.audio, 'base64');
+            contentType = json.format || 'audio/wav';
         } else {
-            audioBuffer = Buffer.from(req.body);
+            audioBuffer = rawBody;
             contentType = req.headers['content-type'] || 'audio/wav';
+        }
+
+        if (!audioBuffer || audioBuffer.length === 0) {
+            return res.status(400).json({ error: 'Empty audio data' });
         }
 
         const witRes = await fetch('https://api.wit.ai/speech', {
