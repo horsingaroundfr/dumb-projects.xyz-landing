@@ -1,10 +1,11 @@
 /**
- * Translation API - Free, no API key needed
+ * Translation API - Free with auto-detect
  * POST /api/translate
  * 
- * Uses MyMemory (free tier: 5000 chars/day)
- * For more: add email param for 10k/day, or use DeepL free API
+ * Uses LibreTranslate (free public instance)
  */
+
+const LIBRETRANSLATE_URL = 'https://libretranslate.com';
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,35 +15,52 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
-        // Accept both GET and POST
         const { text, from = 'auto', to = 'en' } = req.method === 'GET' ? req.query : req.body;
 
         if (!text) {
             return res.status(400).json({ error: 'Missing "text" parameter' });
         }
 
-        // Language pair format: en|es, auto|fr, etc.
-        const langpair = `${from}|${to}`;
-
-        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langpair}`;
-
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (data.responseStatus !== 200) {
-            return res.status(400).json({
-                error: data.responseDetails || 'Translation failed',
-                status: data.responseStatus
+        // Detect language first if auto
+        let sourceLanguage = from;
+        if (from === 'auto') {
+            const detectRes = await fetch(`${LIBRETRANSLATE_URL}/detect`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ q: text })
             });
+            const detectData = await detectRes.json();
+
+            if (detectData && detectData[0]) {
+                sourceLanguage = detectData[0].language;
+            } else {
+                sourceLanguage = 'en'; // fallback
+            }
+        }
+
+        // Translate
+        const translateRes = await fetch(`${LIBRETRANSLATE_URL}/translate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                q: text,
+                source: sourceLanguage,
+                target: to
+            })
+        });
+
+        const data = await translateRes.json();
+
+        if (data.error) {
+            return res.status(400).json({ error: data.error });
         }
 
         return res.status(200).json({
             success: true,
             original: text,
-            translated: data.responseData.translatedText,
-            from: from,
-            to: to,
-            confidence: data.responseData.match
+            translated: data.translatedText,
+            from: sourceLanguage,
+            to: to
         });
 
     } catch (err) {
