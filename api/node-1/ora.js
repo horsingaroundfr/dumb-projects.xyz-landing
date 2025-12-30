@@ -81,7 +81,6 @@ export default async function handler(req, res) {
 
             try {
                 const startTime = performance.now();
-                // Determine API URL (handle standard Vercel structure vs direct file access)
                 const apiUrl = window.location.pathname.endsWith('ora.js') ? window.location.pathname : '/api/node-1/ora';
                 
                 const res = await fetch(apiUrl, {
@@ -94,7 +93,6 @@ export default async function handler(req, res) {
                 const data = await res.json();
                 let content = data.choices ? data.choices[0].message.content : (data.content || JSON.stringify(data));
                 
-                // Simple cleanup of markdown blocks
                 if (content.startsWith('\`\`\`lua')) content = content.substring(6);
                 if (content.startsWith('\`\`\`')) content = content.substring(3);
                 if (content.endsWith('\`\`\`')) content = content.substring(0, content.length - 3);
