@@ -80,6 +80,7 @@ export default async function handler(req, res) {
             out.value = '';
 
             try {
+                const startTime = performance.now();
                 // Determine API URL (handle standard Vercel structure vs direct file access)
                 const apiUrl = window.location.pathname.endsWith('ora.js') ? window.location.pathname : '/api/node-1/ora';
                 
@@ -94,31 +95,33 @@ export default async function handler(req, res) {
                 let content = data.choices ? data.choices[0].message.content : (data.content || JSON.stringify(data));
                 
                 // Simple cleanup of markdown blocks using basic string manipulation to avoid regex escaping hell
-                if (content.startsWith('\`\`\`lua')) content = content.substring(6);
-                if (content.startsWith('\`\`\`')) content = content.substring(3);
-                if (content.endsWith('\`\`\`')) content = content.substring(0, content.length - 3);
-                content = content.trim();
-                
-                out.value = content;
-                
-                try {
-                    await navigator.clipboard.writeText(content);
-                    status.textContent = 'Done & Copied!';
-                } catch (clipboardErr) {
-                    console.error(clipboardErr);
-                    status.textContent = 'Done (Copy failed)';
-                }
+                if (content.startsWith('```lua')) content = content.substring(6);
+                if (content.startsWith('```')) content = content.substring(3);
+            if (content.endsWith('```')) content = content.substring(0, content.length - 3);
+            content = content.trim();
 
-            } catch (e) {
-                out.value = 'Error: ' + e.message;
-                status.textContent = 'Error';
-            } finally {
-                btn.disabled = false;
+            out.value = content;
+
+            const processTime = ((performance.now() - startTime) / 1000).toFixed(2);
+
+            try {
+                await navigator.clipboard.writeText(content);
+                status.textContent = `Done (${processTime}s) & Copied!`;
+            } catch (clipboardErr) {
+                console.error(clipboardErr);
+                status.textContent = `Done (${processTime}s) (Copy failed)`;
             }
+
+        } catch (e) {
+            out.value = 'Error: ' + e.message;
+            status.textContent = 'Error';
+        } finally {
+            btn.disabled = false;
         }
-    </script>
-</body>
-</html>`);
+    }
+    </script >
+</body >
+</html > `);
         }
 
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
@@ -135,7 +138,7 @@ export default async function handler(req, res) {
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${GROQ_KEY}`,
+                'Authorization': `Bearer ${ GROQ_KEY } `,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -143,7 +146,7 @@ export default async function handler(req, res) {
                 messages: [
                     {
                         role: "system",
-                        content: "You are ORA AI, a strict code-only Lua prettifier engine. OUTPUT RULES: 1. Output ONLY valid, runnable Lua code. 2. DO NOT output any markdown formatting, code fences, or explanations. 3. DO NOT output comments. 4. Functionality must be a 1:1 replica of the user's input, just readable. 5. Any text that is not Lua code is strictly FORBIDDEN."
+                        content: "You are ORA AI, a strict code-only Lua prettifier engine. OUTPUT RULES: 1. Output ONLY valid, runnable Lua code. 2. DO NOT output any markdown formatting, code fences, or explanations. 3. DO NOT output comments. 4. Functionality must be a 1:1 replica of the user's input, just readable. 5. Any text that is not Lua code is strictly FORBIDDEN. If you feel the need to explain, DON'T. Just code."
                     },
                     {
                         role: "user",
@@ -165,7 +168,7 @@ export default async function handler(req, res) {
             if (data.error && data.error.message) {
                 const match = data.error.message.match(/Please try again in (\d+(\.\d+)?)s/);
                 if (match) {
-                    errorMsg += ` (${match[0]})`;
+                    errorMsg += ` (${ match[0]})`;
                 }
             }
             return res.status(429).send(errorMsg);
