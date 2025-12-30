@@ -80,20 +80,37 @@ export default async function handler(req, res) {
 
                             if (!res.ok) throw new Error(await res.text());
                             const data = await res.json();
-                            const content = data.choices ? data.choices[0].message.content : (data.content || JSON.stringify(data));
-                            out.value = content;
-                            status.textContent = 'Done';
-                        } catch (e) {
-                            out.value = 'Error: ' + e.message;
-                            status.textContent = 'Error';
-                        } finally {
-                            btn.disabled = false;
-                        }
-                    }
-                </script>
-            </body>
-            </html>
-        `);
+                            let content = data.choices ? data.choices[0].message.content : (data.content || JSON.stringify(data));
+                            
+                            // Strip markdown code blocks if present (safer regex construction)
+                            const codeFenceInfo = new RegExp('^```lua\\\\s * ', 'i');
+                            const codeFenceGeneric = new RegExp('^```\\\\s*', 'i');
+        const codeFenceEnd = new RegExp('```\\\\s*$', 'i');
+
+        content = content.replace(codeFenceInfo, '').replace(codeFenceGeneric, '').replace(codeFenceEnd, '');
+
+        out.value = content;
+
+        // Auto-copy
+        try {
+            await navigator.clipboard.writeText(content);
+            status.textContent = 'Done & Copied!';
+        } catch (clipboardErr) {
+            console.error(clipboardErr);
+            status.textContent = 'Done (Copy failed)';
+        }
+
+    } catch (e) {
+        out.value = 'Error: ' + e.message;
+        status.textContent = 'Error';
+    } finally {
+        btn.disabled = false;
+    }
+}
+                </script >
+            </body >
+            </html >
+    `);
     }
 
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -116,7 +133,7 @@ export default async function handler(req, res) {
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${GROQ_KEY}`,
+                'Authorization': `Bearer ${ GROQ_KEY } `,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -124,14 +141,14 @@ export default async function handler(req, res) {
                 messages: [
                     {
                         role: "system",
-                        content: "You are called \"ORA AI an intelligent ai model that looks at lua code that looks bad and makes it runnable and readable you respond with extremely 1:1 looking code that does the same thing but prettifies it and makes it runnable you cannot add any code to ur liking only the 1:1 replica of the source also you cannot speak you can only reply with code include everything for example the clipboard, chat etc we want it fully working 1:1 real prettifier dont put in the code comments u made i want it 1:1 working + 1:1 real"
+                        content: "You are ORA AI, a strict code-only Lua prettifier engine. OUTPUT RULES: 1. Output ONLY valid, runnable Lua code. 2. DO NOT output any markdown formatting, code fences, or explanations. 3. DO NOT output comments. 4. Functionality must be a 1:1 replica of the user's input, just readable. 5. Any text that is not Lua code is strictly FORBIDDEN."
                     },
                     {
                         role: "user",
                         content: content
                     }
                 ],
-                temperature: 1,
+                temperature: 0.1,
                 max_completion_tokens: 1024,
                 top_p: 1,
                 stream: false
