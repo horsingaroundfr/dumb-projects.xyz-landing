@@ -110,11 +110,7 @@ export default async function handler(req, res) {
                 }
 
             } catch (e) {
-                if (e.message.includes('rate_limit_exceeded') || e.message.toLowerCase().includes('rate limit')) {
-                    out.value = 'Error, Try again later';
-                } else {
-                    out.value = 'Error: ' + e.message;
-                }
+                out.value = 'Error: ' + e.message;
                 status.textContent = 'Error';
             } finally {
                 btn.disabled = false;
@@ -162,6 +158,19 @@ export default async function handler(req, res) {
         });
 
         const data = await response.json();
+
+        // Server-side safeguarding: Sanitize rate limit errors
+        if (response.status === 429 || (data.error && data.error.code === 'rate_limit_exceeded')) {
+            let errorMsg = 'Error, Try again later';
+            if (data.error && data.error.message) {
+                const match = data.error.message.match(/Please try again in (\d+(\.\d+)?)s/);
+                if (match) {
+                    errorMsg += ` (${match[0]})`;
+                }
+            }
+            return res.status(429).send(errorMsg);
+        }
+
         return res.status(response.status).json(data);
 
     } catch (err) {
