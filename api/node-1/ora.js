@@ -81,7 +81,7 @@ export default async function handler(req, res) {
 
             try {
                 // Determine API URL (handle standard Vercel structure vs direct file access)
-                const apiUrl = window.location.pathname.endsWith('ora_ai.js') ? window.location.pathname : '/api/ora_ai';
+                const apiUrl = window.location.pathname.endsWith('ora.js') ? window.location.pathname : '/api/ora';
                 
                 const res = await fetch(apiUrl, {
                     method: 'POST',
