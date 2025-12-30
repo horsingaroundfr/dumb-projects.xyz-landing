@@ -110,7 +110,11 @@ export default async function handler(req, res) {
                 }
 
             } catch (e) {
-                out.value = 'Error: ' + e.message;
+                if (e.message.includes('rate_limit_exceeded') || e.message.toLowerCase().includes('rate limit')) {
+                    out.value = 'Error, Try again later';
+                } else {
+                    out.value = 'Error: ' + e.message;
+                }
                 status.textContent = 'Error';
             } finally {
                 btn.disabled = false;
