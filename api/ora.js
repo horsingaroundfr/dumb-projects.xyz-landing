@@ -1,4 +1,4 @@
-const GROQ_KEY = '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';
+const GROQ_KEY = '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';
 
 export const config = {
     api: {
