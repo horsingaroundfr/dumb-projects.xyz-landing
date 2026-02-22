@@ -46,7 +46,7 @@
 
 export const config = { runtime: "edge" };
 
-const API_KEY  = "YOUR_API_KEY_HERE"; // <-- swap this
+const API_KEY  = "e4bd483d9a554fce95a6eedcad38edfd"; // <-- swap this
 const BASE_URL = "https://api.donutsmp.net";
 
 const LEADERBOARD_CATS = [
